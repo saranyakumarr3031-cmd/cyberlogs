@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Investigation Mode{% endblock %}
+{% block heading %}Investigation Mode{% endblock %}
+{% block sub %}A small digital-forensics workbench: pick an event, then look at its neighbours, relationships and evidence.{% endblock %}
+{% block content %}
+<div id="app">
+  <div class="split inv">
+    <section class="panel">
+      <div class="toolbar">
+        <input id="search" type="search" placeholder="Search IP, user, event..." aria-label="Search events">
+        <select id="filter" aria-label="Filter events">
+          <option value="incident">Incident events</option>
+          <option value="flagged">Unusual events</option>
+          <option value="all">All events (original file order)</option>
+        </select>
+      </div>
+      <div id="list" class="evlist"></div>
+    </section>
+    <aside id="detail" class="panel"><p class="muted">Select an event on the left.</p></aside>
+  </div>
+</div>
+{% endblock %}

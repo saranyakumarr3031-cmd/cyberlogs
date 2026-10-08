@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Incident Reconstruction{% endblock %}
+{% block heading %}Incident Reconstruction{% endblock %}
+{% block sub %}The most likely sequence behind the correlated events: a <b>suspected</b> incident, not a confirmed one.{% endblock %}
+{% block content %}
+<div id="app">
+  <div id="banner"></div>
+  <div id="kpis" class="kpis"></div>
+  <section class="panel"><h2>Possible incident</h2><div id="sequence" class="sequence"></div></section>
+  <section class="panel"><h2>AI-generated attack story</h2><div id="story"></div></section>
+  <section class="panel">
+    <h2>Incident graph</h2>
+    <p class="muted small">IP &rarr; user &rarr; events. Solid arrows show event-to-event correlation scores. Hover a node to highlight its links, click to list its events.</p>
+    <div id="graph-wrap"><svg id="graph" viewBox="0 0 1000 380" role="img" aria-label="Incident relationship graph"></svg></div>
+    <div id="graph-detail" class="muted small">Click a node to see its events.</div>
+  </section>
+  <section class="panel"><h2>Possible attack stages</h2><div id="stages" class="stages"></div>
+    <p class="muted small">MITRE ATT&amp;CK IDs are <b>candidate</b> techniques shown only where the evidence count supports them. Verify manually.</p></section>
+  <section class="panel"><h2>Other findings</h2><div id="others"></div></section>
+</div>
+{% endblock %}

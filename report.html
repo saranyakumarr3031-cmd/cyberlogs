@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Report{% endblock %}
+{% block heading %}Incident Investigation Report{% endblock %}
+{% block sub %}Download as HTML, or print the report and choose &ldquo;Save as PDF&rdquo;.{% endblock %}
+{% block content %}
+{% if ctx %}
+  {% include "report_style.html" %}
+  <div class="toolbar">
+    <a class="btn primary" href="{{ url_for('report_download') }}">Download HTML</a>
+    <button class="btn" id="print-btn" type="button">Save as PDF (print)</button>
+  </div>
+  <div class="paper">{% include "report_body.html" %}</div>
+{% else %}
+  <div class="panel"><p>No reconstructed incident is available yet. <a class="link" href="{{ url_for('index') }}">Upload logs</a> first.</p></div>
+{% endif %}
+{% endblock %}

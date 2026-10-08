@@ -1,0 +1,44 @@
+{% if ctx %}
+{% set inc = ctx.incident %}
+<article class="doc">
+  <h1>Incident Investigation Report</h1>
+  <p class="meta">Suspected incident <b>{{ inc.incident_id }}</b> &middot; source file: {{ ctx.filename }} &middot; generated {{ ctx.generated_at }}</p>
+  <p class="notice"><b>Important:</b> this report describes a <b>potential / suspected</b> incident reconstructed automatically from log data. It is not a confirmed attack and must be verified by an analyst.</p>
+
+  <h2>1. Summary</h2>
+  <table class="kv">
+    <tr><th>Incident ID</th><td>{{ inc.incident_id }}</td><th>Duration</th><td>{{ inc.duration_text }} ({{ inc.start_time }} &ndash; {{ inc.end_time }}, {{ inc.date }})</td></tr>
+    <tr><th>Risk score</th><td>{{ inc.risk }} / 100 ({{ inc.risk_label }})</td><th>Confidence score</th><td>{{ inc.confidence.overall }}% (analytical estimate)</td></tr>
+    <tr><th>Main source IP</th><td>{{ inc.main_ip }}</td><th>Main user</th><td>{{ inc.main_user }}</td></tr>
+    <tr><th>Evidence strength</th><td>{{ inc.confidence.evidence_strength }}%</td><th>Event correlation</th><td>{{ inc.confidence.event_correlation }}%</td></tr>
+    <tr><th>Sequence consistency</th><td>{{ inc.confidence.sequence_consistency }}%</td><th>Attack stage count</th><td>{{ inc.stage_count }}</td></tr>
+  </table>
+
+  <h2>2. Possible attack stages</h2>
+  <p>{{ inc.sequence | join(' &rarr; ') | safe }}</p>
+  <ul>{% for s in inc.stages %}<li><b>{{ s.stage }}</b> &ndash; {{ s.count }} event(s), first seen {{ s.first_time }}</li>{% endfor %}</ul>
+  {% if inc.mitre %}<p class="small">Candidate MITRE ATT&amp;CK techniques (unverified): {% for m in inc.mitre %}{{ m.id }} {{ m.name }}{{ ', ' if not loop.last }}{% endfor %}.</p>{% endif %}
+
+  <h2>3. Attack story</h2>
+  <p>{% for s in inc.story %}{{ s.text }} {% endfor %}</p>
+
+  <h2>4. Supporting evidence</h2>
+  {% for c in inc.conclusions %}
+    <h3>{{ c.title }} &mdash; confidence {{ c.confidence }}%</h3>
+    <ul class="checks">{% for e in c.evidence %}<li class="{{ 'ok' if e.ok else 'no' }}">{{ '&#10003;'|safe if e.ok else '&#10007;'|safe }} {{ e.text }}</li>{% endfor %}</ul>
+  {% endfor %}
+
+  <h2>5. Reconstructed timeline</h2>
+  <table class="grid"><thead><tr><th>Time</th><th>Event</th><th>IP</th><th>User</th><th>Severity</th><th>Stage</th><th>Corr.</th></tr></thead><tbody>
+  {% for e in ctx.timeline %}<tr><td>{{ e.time }}</td><td>{{ e.event }}{% if e.action %}<br><span class="small">{{ e.action }}</span>{% endif %}</td><td>{{ e.ip }}</td><td>{{ e.user }}</td><td>{{ e.severity_label }}</td><td>{{ e.stage }}</td><td>{{ e.corr_prev if e.corr_prev is not none else '-' }}</td></tr>{% endfor %}
+  </tbody></table>
+
+  <h2>6. Most suspicious events</h2>
+  <ul>{% for e in ctx.suspicious %}<li><b>{{ e.time }} {{ e.event }}</b> (anomaly {{ e.anomaly }}): {{ e.reasons | join('; ') }}</li>{% endfor %}</ul>
+
+  <h2>7. Recommended defensive actions</h2>
+  <ol>{% for a in ctx.actions %}<li>{{ a }}</li>{% endfor %}</ol>
+
+  <p class="small foot">{{ inc.confidence.disclaimer }}</p>
+</article>
+{% endif %}

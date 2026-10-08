@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Interactive Timeline{% endblock %}
+{% block heading %}Interactive Timeline{% endblock %}
+{% block sub %}Events in time order (the original file order is kept in the investigation view). Click an event to see why it matters.{% endblock %}
+{% block content %}
+<div id="app">
+  <div class="toolbar">
+    <label><input type="radio" name="scope" value="incident" checked> Incident events</label>
+    <label><input type="radio" name="scope" value="flagged"> All unusual events</label>
+    <label><input type="radio" name="scope" value="all"> All events</label>
+  </div>
+  <div class="split">
+    <div id="timeline" class="timeline"></div>
+    <aside id="detail" class="panel sticky"><p class="muted">Select an event.</p></aside>
+  </div>
+</div>
+{% endblock %}

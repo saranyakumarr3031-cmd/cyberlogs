@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Analysis{% endblock %}
+{% block heading %}Analysis{% endblock %}
+{% block sub %}What the pipeline did with your file, step by step. An anomaly means <b>unusual</b>, not <b>malicious</b>.{% endblock %}
+{% block content %}
+<div id="app">
+  <div id="pipeline" class="pipeline"></div>
+  <div id="kpis" class="kpis"></div>
+  <section class="panel">
+    <h2>Anomaly score over time</h2>
+    <p class="muted small">Each dot is one event. Red = part of a reconstructed incident, amber = unusual but not correlated with anything, grey = normal. Hover for details, click to investigate.</p>
+    <canvas id="chart" height="260"></canvas>
+    <p id="chart-info" class="muted small">&nbsp;</p>
+  </section>
+  <section class="panel">
+    <h2>Most unusual events</h2>
+    <div id="top-events"></div>
+  </section>
+  <section class="panel" id="notes-panel"></section>
+</div>
+{% endblock %}

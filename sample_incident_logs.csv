@@ -1,0 +1,83 @@
+timestamp,source_ip,user,event,action,destination,status,bytes
+2026-10-07 11:28:09,192.168.1.21,alice,Email sync,SYNC mailbox,mail01,success,293475
+2026-10-07 11:26:22,192.168.1.23,carol,Email sync,SYNC mailbox,mail01,success,367943
+2026-10-07 09:43:15,10.0.0.5,admin,Failed login,POST /login,auth-server,failure,0
+2026-10-07 11:30:02,198.51.100.77,root,Failed login,SSH login,auth-server,failure,0
+2026-10-07 09:47:30,10.0.0.5,admin,File access,READ /finance/payroll_2026.xlsx,fileserver01,success,0
+2026-10-07 09:43:52,10.0.0.5,admin,Successful login,POST /login,auth-server,success,0
+2026-10-07 09:48:12,10.0.0.5,admin,File access,READ /hr/employee_records.csv,fileserver01,success,0
+2026-10-07 09:43:52,10.0.0.5,admin,Successful login,POST /login,auth-server,success,0
+2026-10-07 11:34:59,192.168.1.22,bob,File access,READ /projects/design.pptx,fileserver01,success,0
+2026-10-07 16:40:12,192.168.1.21,alice,Logout,Session closed,auth-server,success,0
+2026-10-07 16:30:19,192.168.1.24,dave,Logout,Session closed,auth-server,success,0
+2026-10-07 10:05:29,192.168.1.22,bob,Successful login,POST /login,auth-server,success,0
+2026-10-07 11:12:26,192.168.1.22,bob,File download,GET /projects/notes.txt,fileserver01,success,843919
+2026-10-07 08:39:41,192.168.1.23,carol,Successful login,POST /login,auth-server,success,0
+2026-10-07 09:50:07,192.168.1.23,carol,File download,GET /projects/design.pptx,fileserver01,success,111818
+2026-10-07 14:12:00,192.168.1.23,carol,Printer queue job,PRINT report.pdf,print01,success,0
+2026-10-07 11:59:42,192.168.1.22,bob,File access,READ /projects/plan.docx,fileserver01,success,0
+2026-10-07 11:26:55,192.168.1.24,dave,File access,READ /projects/notes.txt,fileserver01,success,0
+2026-10-07 12:36:18,192.168.1.23,carol,Web browsing,GET https://intranet/wiki,proxy01,success,2536
+2026-10-07 09:41:05,10.0.0.5,admin,Failed login,POST /login,auth-server,failure,0
+2026-10-07 12:19:53,192.168.1.23,carol,Email sync,SYNC mailbox,mail01,success,318870
+2026-10-07 10:06:04,192.168.1.21,alice,Email sync,SYNC mailbox,mail01,success,136176
+2026-10-07 15:20:09,192.168.1.10,admin,Logout,Session closed,auth-server,success,0
+2026-10-07 10:58:00,192.168.1.24,dave,File access,READ /shared/handbook.pdf,fileserver01,success,0
+2026-10-07 11:31:44,198.51.100.77,root,Failed login,SSH login,auth-server,failure,0
+2026-10-07 09:45:20,10.0.0.5,admin,Privilege escalation,Added to Administrators group,auth-server,success,0
+2026-10-07 10:32:58,192.168.1.23,carol,Email sync,SYNC mailbox,mail01,success,270312
+2026-10-07 09:00:03,192.168.1.22,bob,File download,GET /shared/handbook.pdf,fileserver01,success,265963
+2026-10-07 12:28:29,192.168.1.24,dave,Email sync,SYNC mailbox,mail01,success,261865
+2026-10-07 09:46:10,10.0.0.5,admin,Directory listing,LIST /finance/ /hr/,fileserver01,success,0
+2026-10-07 10:05:11,192.168.1.22,bob,Failed login,POST /login,auth-server,failure,0
+2026-10-07 11:07:35,192.168.1.21,alice,File access,READ /projects/notes.txt,fileserver01,success,0
+2026-10-07 08:47:23,192.168.1.24,dave,Successful login,POST /login,auth-server,success,0
+2026-10-07 08:41:06,192.168.1.22,bob,Successful login,POST /login,auth-server,success,0
+2026-10-07 16:04:03,192.168.1.22,bob,Logout,Session closed,auth-server,success,0
+2026-10-07 09:33:29,192.168.1.23,carol,File access,READ /shared/template.xlsx,fileserver01,success,0
+2026-10-07 08:58:52,192.168.1.21,alice,File access,READ /shared/handbook.pdf,fileserver01,success,0
+2026-10-07 09:27:27,192.168.1.22,bob,File download,GET /shared/template.xlsx,fileserver01,success,538218
+2026-10-07 09:13:37,192.168.1.21,alice,Web browsing,GET https://intranet/wiki,proxy01,success,9602
+2026-10-07 12:07:14,192.168.1.23,carol,File access,READ /projects/notes.txt,fileserver01,success,0
+2026-10-07 09:41:32,10.0.0.5,admin,Failed login,POST /login,auth-server,failure,0
+2026-10-07 10:06:40,192.168.1.24,dave,Email sync,SYNC mailbox,mail01,success,219947
+2026-10-07 09:53:19,192.168.1.22,bob,Web browsing,GET https://intranet/wiki,proxy01,success,34561
+2026-10-07 11:14:06,192.168.1.24,dave,File download,GET /shared/template.xlsx,fileserver01,success,693550
+2026-10-07 16:09:26,192.168.1.23,carol,Logout,Session closed,auth-server,success,0
+2026-10-07 11:50:09,192.168.1.23,carol,File access,READ /projects/plan.docx,fileserver01,success,0
+2026-10-07 11:43:19,192.168.1.21,alice,File download,GET /shared/handbook.pdf,fileserver01,success,765131
+2026-10-07 08:40:09,192.168.1.21,alice,Successful login,POST /login,auth-server,success,0
+2026-10-07 09:52:40,10.0.0.5,admin,File download,GET /hr/employee_records.csv,fileserver01,success,18000000
+2026-10-07 10:46:28,192.168.1.23,carol,File access,READ /projects/design.pptx,fileserver01,success,0
+2026-10-07 12:48:51,192.168.1.22,bob,File download,GET /projects/design.pptx,fileserver01,success,122103
+2026-10-07 10:45:07,192.168.1.24,dave,File access,READ /shared/template.xlsx,fileserver01,success,0
+2026-10-07 13:02:30,192.168.1.22,bob,Web browsing,GET https://intranet/wiki,proxy01,success,89051
+2026-10-07 10:35:40,192.168.1.21,alice,File access,READ /shared/handbook.pdf,fileserver01,success,0
+2026-10-07 10:10:05,192.168.1.22,bob,File access,READ /shared/handbook.pdf,fileserver01,success,0
+2026-10-07 09:51:25,192.168.1.24,dave,Email sync,SYNC mailbox,mail01,success,216632
+2026-10-07 09:14:44,192.168.1.24,dave,File access,READ /shared/handbook.pdf,fileserver01,success,0
+2026-10-07 10:57:38,192.168.1.22,bob,Web browsing,GET https://intranet/wiki,proxy01,success,11594
+2026-10-07 09:56:18,10.0.0.5,admin,Large outbound transfer,HTTPS POST upload,203.0.113.50,success,850000000
+2026-10-07 11:06:52,192.168.1.23,carol,File access,READ /projects/design.pptx,fileserver01,success,0
+2026-10-07 10:48:37,192.168.1.21,alice,File download,GET /projects/design.pptx,fileserver01,success,101998
+2026-10-07 13:10:05,192.168.1.22,,Web browsing,GET https://intranet/news,proxy01,success,15000
+2026-10-07 09:27:57,192.168.1.24,dave,Email sync,SYNC mailbox,mail01,success,366817
+2026-10-07 08:30:12,192.168.1.10,admin,Successful login,POST /login,auth-server,success,0
+2026-10-07 02:00:30,10.0.0.20,svc_backup,Outbound transfer,Nightly cloud backup,198.51.100.20,success,120000000
+2026-10-07 09:52:05,10.0.0.5,admin,File download,GET /finance/payroll_2026.xlsx,fileserver01,success,4200000
+2026-10-07 12:21:44,192.168.1.22,bob,Web browsing,GET https://intranet/wiki,proxy01,success,47898
+2026-10-07 08:55:40,192.168.1.10,admin,File access,READ /shared/handbook.pdf,fileserver01,success,0
+2026-10-07 09:42:48,10.0.0.5,admin,Failed login,POST /login,auth-server,failure,0
+not-a-time,192.168.1.24,dave,File access,READ /projects/plan.docx,fileserver01,success,0
+2026-10-07 10:08:08,192.168.1.23,carol,Web browsing,GET https://intranet/wiki,proxy01,success,34455
+2026-10-07 12:13:23,192.168.1.24,dave,File download,GET /projects/design.pptx,fileserver01,success,178809
+2026-10-07 12:00:37,192.168.1.21,alice,File access,READ /shared/handbook.pdf,fileserver01,success,0
+2026-10-07 09:42:10,10.0.0.5,admin,Failed login,POST /login,auth-server,failure,0
+2026-10-07 11:50:40,192.168.1.24,dave,File access,READ /shared/template.xlsx,fileserver01,success,0
+2026-10-07 10:20:27,192.168.1.21,alice,File download,GET /projects/plan.docx,fileserver01,success,642921
+2026-10-07 10:19:04,192.168.1.24,dave,File access,READ /projects/notes.txt,fileserver01,success,0
+2026-10-07 10:31:31,192.168.1.22,bob,File download,GET /shared/template.xlsx,fileserver01,success,814878
+2026-10-07 09:10:45,192.168.1.23,carol,Web browsing,GET https://intranet/wiki,proxy01,success,52566
+2026-10-07 09:53:25,10.0.0.5,admin,File download,GET /finance/customer_database.db,fileserver01,success,260000000
+2026-10-07 09:41:02,192.168.1.21,alice,File access,READ /projects/plan.docx,fileserver01,success,0
+2026-10-07 09:49:40,10.0.0.5,admin,File access,READ /finance/customer_database.db,fileserver01,success,0

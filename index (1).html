@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Home{% endblock %}
+{% block heading %}Reconstruct the attack story hidden in your logs{% endblock %}
+{% block sub %}Scattered security events in, an evidence-backed story of a <b>possible</b> incident out. Runs fully offline.{% endblock %}
+{% block content %}
+<section class="flow">
+  <span>Raw events</span><i>&rarr;</i><span>AI correlation</span><i>&rarr;</i><span>Incident reconstruction</span><i>&rarr;</i>
+  <span>Attack story</span><i>&rarr;</i><span>Evidence</span><i>&rarr;</i><span>Confidence</span><i>&rarr;</i><span>Investigation</span>
+</section>
+
+<section class="panel" id="upload">
+  <h2>Upload logs</h2>
+  {% if error %}<div class="alert err" role="alert">{{ error }}</div>{% endif %}
+  <div class="two">
+    <form method="post" action="{{ url_for('upload') }}" enctype="multipart/form-data" class="upload-box">
+      <label for="logfile">Choose a log file ({{ allowed | join(', ') }} &middot; max 5 MB)</label>
+      <input type="file" id="logfile" name="logfile" accept=".csv,.txt,.json" required>
+      <button class="btn primary" type="submit">Analyze logs</button>
+    </form>
+    <form method="post" action="{{ url_for('upload') }}" class="upload-box">
+      <label>No file handy? Try the built-in fictional dataset (82 rows: one hidden attack sequence, normal users and decoys).</label>
+      <input type="hidden" name="use_sample" value="1">
+      <button class="btn" type="submit">Analyze sample dataset</button>
+      <a class="link" href="{{ url_for('download_sample') }}">Download sample CSV</a>
+    </form>
+  </div>
+  <p class="muted small">Files are read in memory only. They are never executed or stored on disk. Columns (time, IP, user, event, action, destination, status) are detected automatically.</p>
+</section>
+
+<section class="panel">
+  <h2>How it works</h2>
+  <ol class="steps">
+    <li><b>Clean</b> &ndash; normalize formats, fix timestamps, remove duplicates.</li>
+    <li><b>Detect</b> &ndash; Isolation Forest flags unusual events.</li>
+    <li><b>Correlate</b> &ndash; a 7-factor relationship score and DBSCAN clustering link events.</li>
+    <li><b>Reconstruct</b> &ndash; stages, timeline, risk and confidence.</li>
+    <li><b>Explain</b> &ndash; a story built only from real events, with evidence.</li>
+  </ol>
+</section>
+
+{% if runs %}
+<section class="panel">
+  <h2>Recent analyses</h2>
+  <table class="tbl"><thead><tr><th>#</th><th>File</th><th>When</th></tr></thead><tbody>
+    {% for r in runs %}<tr><td>{{ r.id }}</td><td>{{ r.filename }}</td><td>{{ r.created_at }}</td></tr>{% endfor %}
+  </tbody></table>
+  <p class="muted small">The newest analysis is the one shown on the other pages. <a class="link" href="{{ url_for('analysis') }}">Open it &rarr;</a></p>
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Incident Reconstruction{% endblock %} | IncidentLens</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body data-page="{{ page }}">
+  <aside class="side">
+    <a class="brand" href="{{ url_for('index') }}">
+      <span class="brand-mark">&#9670;</span>
+      <span><b>IncidentLens</b><small>AI incident reconstruction</small></span>
+    </a>
+    <nav>
+      {% set items = [
+        ('home', 'index', 'Home', ''), ('upload', 'index', 'Upload Logs', '#upload'),
+        ('analysis', 'analysis', 'Analysis', ''), ('incident', 'incident', 'Incident Reconstruction', ''),
+        ('timeline', 'timeline', 'Interactive Timeline', ''), ('evidence', 'evidence', 'Evidence Explorer', ''),
+        ('investigation', 'investigation', 'Investigation Mode', ''), ('report', 'report', 'Report', '') ] %}
+      {% for key, endpoint, label, anchor in items %}
+        <a href="{{ url_for(endpoint) }}{{ anchor }}" class="{{ 'active' if page == key else '' }}">
+          <i>{{ loop.index }}</i>{{ label }}
+        </a>
+      {% endfor %}
+    </nav>
+    <p class="side-note">Results are <b>suspected</b> incidents estimated by analysis. They are not proof of an attack.</p>
+  </aside>
+  <main>
+    <header class="top">
+      <h1>{% block heading %}{% endblock %}</h1>
+      <p class="sub">{% block sub %}{% endblock %}</p>
+    </header>
+    {% block content %}{% endblock %}
+  </main>
+  <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
