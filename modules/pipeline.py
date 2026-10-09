@@ -33,7 +33,7 @@ def run_pipeline(file_bytes, filename):
     for r in df.to_dict("records"):
         a = notes_by_id.get(r["id"], {})
         events.append({
-            "id": r["id"], "order": r["order"], "date": r["timestamp"].strftime("%Y-%m-%d"),
+            "id": r["id"], "order": r.get("order", r["id"]), "date": r["timestamp"].strftime("%Y-%m-%d"),
             "time": r["timestamp"].strftime("%H:%M:%S"), "ip": _short(r["source_ip"]), "user": _short(r["user"]),
             "event": _short(r["event"]), "etype": r["etype"], "action": _short(r["action"]),
             "destination": _short(r["destination"]), "status": _short(r["status"]), "bytes": int(r["bytes"]),
