@@ -1,223 +1,120 @@
+"""
+MODULE 2 - EVENT NORMALIZATION  (Data preprocessing)
+----------------------------------------------------
+Turns the raw table into one clean, common structure:
+
+    id | order | timestamp | source_ip | user | event | etype | severity | ...
+
+* sorts by time, but keeps `order` = the original line position in the file
+* handles missing values, invalid timestamps, duplicates and unknown event types
+"""
+import ipaddress
+import re
 
 import pandas as pd
 
+# base severity (0-5) for every known event type
+BASE_SEVERITY = {
+    "failed_login": 2, "successful_login": 1, "privilege_change": 4, "discovery": 3,
+    "file_access": 1, "file_download": 2, "outbound_transfer": 3,
+    "logout": 0, "normal_activity": 0, "unknown": 1,
+}
+SEVERITY_LABEL = {0: "info", 1: "low", 2: "low", 3: "medium", 4: "high", 5: "critical"}
+
+# (event type, regex) - checked in this order
+_RULES = [
+    ("failed_login", r"(fail|denied|invalid|wrong|bad|unsuccess).*(log ?in|log ?on|auth|ssh|password|credential)|(log ?in|log ?on|auth|ssh).*(fail|denied|invalid)"),
+    ("logout", r"log ?out|log ?off|sign ?out|session closed"),
+    ("successful_login", r"log ?in|log ?on|authenticat|ssh accept"),
+    ("privilege_change", r"privilege|sudo|escalat|admin(istrators)? group|role change|permission change|runas"),
+    ("discovery", r"director(y|ies) listing|dir listing|enumerat|scan|discover|list files|network share"),
+    ("outbound_transfer", r"outbound|upload|exfil|egress|transfer"),
+    ("file_download", r"download|export|archive|compress|zip"),
+    ("file_access", r"file access|open file|read|view|accessed|smb"),
+    ("normal_activity", r"web|brows|e-?mail|mail|dns|http|sync"),
+]
+_SENSITIVE = re.compile(r"payroll|salary|confidential|secret|password|credential|customer|finance|/hr/|employee|backup|database|\.pem|\.key|ssn", re.I)
+
+
+def classify_event(text):
+    text = str(text).lower()
+    for etype, pattern in _RULES:
+        if re.search(pattern, text):
+            return etype
+    return "unknown"
+
+
+_INTERNAL_NETS = [ipaddress.ip_network(n) for n in
+                  ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8", "169.254.0.0/16", "::1/128", "fc00::/7")]
+
+
+def is_private_ip(value):
+    """True for internal addresses (RFC 1918 etc.) and for names that are not IPs (e.g. 'fileserver01')."""
+    try:
+        ip = ipaddress.ip_address(value)
+    except ValueError:
+        return True
+    return any(ip in net for net in _INTERNAL_NETS if net.version == ip.version)
+
+
+def _valid_ip(value):
+    try:
+        ipaddress.ip_address(value)
+        return value
+    except ValueError:
+        return "unknown"
+
 
 def normalize(raw):
-    """
-    Normalize parsed security logs into a consistent format.
-    Returns:
-        df      : cleaned DataFrame
-        quality : data-quality statistics
-    """
-
+    """raw DataFrame -> (clean DataFrame, quality-report dict)."""
     df = raw.copy()
+    df["order"] = range(1, len(df) + 1)  # original position in the file
+    for col in ("source_ip", "user", "event", "action", "destination", "status"):
+        df[col] = df[col].astype(str).str.strip()
+    quality = {"rows_read": len(df)}
 
-    quality = {
-        "rows_read": len(df),
-        "invalid_timestamps": 0,
-        "duplicates_removed": 0,
-        "unknown_event_types": 0,
-    }
-
-    if df.empty:
-        return df, quality
-
-    # Ensure expected columns exist
-    expected_columns = [
-        "timestamp",
-        "source_ip",
-        "user",
-        "event",
-        "action",
-        "destination",
-        "status",
-        "bytes",
-    ]
-
-    for column in expected_columns:
-        if column not in df.columns:
-            df[column] = ""
-
-    # Normalize timestamp values
-    df["timestamp"] = pd.to_datetime(
-        df["timestamp"].astype(str).str.strip(),
-        errors="coerce",
-        utc=True,
-    ).dt.tz_localize(None)
-
-    # Remove invalid timestamps
+    # --- invalid timestamps (time-only values like "09:41" are accepted, today's date is used)
+    df["timestamp"] = pd.to_datetime(df["timestamp"].astype(str).str.strip(), errors="coerce",
+                                     utc=True, format="mixed").dt.tz_localize(None)
     bad = df["timestamp"].isna()
     quality["invalid_timestamps"] = int(bad.sum())
     df = df[~bad].copy()
 
-    if df.empty:
-        quality["duplicates_removed"] = 0
-        quality["unknown_event_types"] = 0
-        return df, quality
-
-    # Clean text fields
-    text_columns = [
-        "source_ip",
-        "user",
-        "event",
-        "action",
-        "destination",
-        "status",
-    ]
-
-    for column in text_columns:
-        df[column] = (
-            df[column]
-            .fillna("")
-            .astype(str)
-            .str.strip()
-        )
-
-    # Replace missing values
-    df["source_ip"] = df["source_ip"].replace("", "unknown")
+    # --- missing values
+    quality["missing_values_filled"] = int(((df["user"] == "") | (df["source_ip"] == "") | (df["event"] == "")).sum())
     df["user"] = df["user"].replace("", "unknown")
-    df["event"] = df["event"].replace("", "unknown")
-    df["action"] = df["action"].replace("", "unknown")
-    df["destination"] = df["destination"].replace("", "unknown")
-    df["status"] = df["status"].replace("", "unknown")
+    df["source_ip"] = df["source_ip"].replace("", "unknown").map(_valid_ip)
+    df["event"] = df["event"].replace("", "unknown event")
+    df["bytes"] = pd.to_numeric(df["bytes"], errors="coerce").fillna(0).clip(lower=0)
 
-    # Convert bytes to numeric values
-    df["bytes"] = pd.to_numeric(
-        df["bytes"], errors="coerce"
-    ).fillna(0)
-
-    # Remove duplicate rows
+    # --- duplicates
+    key = ["timestamp", "source_ip", "user", "event", "action", "destination", "status"]
     before = len(df)
-    df = df.drop_duplicates().copy()
+    df = df.drop_duplicates(subset=key, keep="first")
     quality["duplicates_removed"] = before - len(df)
 
-    # Sort by time
-    df = df.sort_values("timestamp").reset_index(drop=True)
+    # --- sort by time (stable: ties keep original order) and give each event an id
+    df = df.sort_values(["timestamp", "order"], kind="stable").reset_index(drop=True)
+    df["id"] = df.index
 
-    # Assign unique event IDs
-    df["id"] = [
-        f"E{i + 1:04d}" for i in range(len(df))
-    ]
+    # --- event type (look at the event name first, then at the action text)
+    df["etype"] = df["event"].map(classify_event)
+    unknown_mask = df["etype"] == "unknown"
+    df.loc[unknown_mask, "etype"] = df.loc[unknown_mask, "action"].map(classify_event)
+    # a status of failure turns a login into a failed login
+    fail = df["status"].str.lower().str.contains("fail|denied|error", regex=True)
+    df.loc[(df["etype"] == "successful_login") & fail, "etype"] = "failed_login"
+    quality["unknown_event_types"] = int((df["etype"] == "unknown").sum())
 
-    # Normalize event names
-    event_text = (
-        df["event"].astype(str).str.lower()
-        + " "
-        + df["action"].astype(str).str.lower()
-    )
-
-    def classify_event(value):
-        value = str(value).lower()
-
-        if any(word in value for word in [
-            "failed login", "login failed", "authentication failure",
-            "auth failure", "invalid password",
-        ]):
-            return "failed_login"
-
-        if any(word in value for word in [
-            "successful login", "login success", "user login",
-        ]):
-            return "successful_login"
-
-        if any(word in value for word in [
-            "port scan", "portscan", "network scan",
-        ]):
-            return "port_scan"
-
-        if any(word in value for word in [
-            "privilege escalation", "sudo", "admin privilege",
-        ]):
-            return "privilege_escalation"
-
-        if any(word in value for word in [
-            "malware", "ransomware", "virus detected",
-        ]):
-            return "malware_detected"
-
-        if any(word in value for word in [
-            "outbound transfer", "data exfiltration",
-            "large upload", "data transfer",
-        ]):
-            return "outbound_transfer"
-
-        if any(word in value for word in [
-            "file access", "file modified", "file deleted",
-        ]):
-            return "file_activity"
-
-        if any(word in value for word in [
-            "firewall", "blocked connection", "connection blocked",
-        ]):
-            return "firewall_event"
-
-        if any(word in value for word in [
-            "dns query", "dns request",
-        ]):
-            return "dns_query"
-
-        if any(word in value for word in [
-            "process started", "process execution",
-        ]):
-            return "process_execution"
-
-        return "unknown"
-
-    df["etype"] = event_text.apply(classify_event)
-
-    # Severity score from 1 (low) to 5 (critical)
-    severity_map = {
-        "failed_login": 2,
-        "successful_login": 1,
-        "port_scan": 3,
-        "privilege_escalation": 5,
-        "malware_detected": 5,
-        "outbound_transfer": 4,
-        "file_activity": 2,
-        "firewall_event": 2,
-        "dns_query": 1,
-        "process_execution": 2,
-        "unknown": 1,
-    }
-
-    df["severity"] = df["etype"].map(severity_map).fillna(1).astype(int)
-
-    # Mark potentially sensitive events
-    df["sensitive"] = df["etype"].isin([
-        "failed_login",
-        "privilege_escalation",
-        "malware_detected",
-        "outbound_transfer",
-    ])
-
-    # Identify external destination hints
-    def is_external_destination(value):
-        value = str(value).strip().lower()
-
-        if not value or value in {
-            "unknown", "localhost", "127.0.0.1", "::1"
-        }:
-            return False
-
-        # This is a simple heuristic, not a complete IP/domain validator.
-        if value.startswith((
-            "10.", "192.168.", "172.16.", "172.17.",
-            "172.18.", "172.19.", "172.20.", "172.21.",
-            "172.22.", "172.23.", "172.24.", "172.25.",
-            "172.26.", "172.27.", "172.28.", "172.29.",
-            "172.30.", "172.31.",
-        )):
-            return False
-
-        return True
-
-    df["external_dest"] = df["destination"].apply(
-        is_external_destination
-    )
-
-    # Count unrecognized event types
-    quality["unknown_event_types"] = int(
-        (df["etype"] == "unknown").sum()
-    )
-
+    # --- helper flags + severity
+    text = df["event"] + " " + df["action"] + " " + df["destination"]
+    df["sensitive"] = text.str.contains(_SENSITIVE)
+    df["large"] = df["event"].str.contains(r"large|huge|massive|unusual|bulk", case=False, regex=True)
+    df["external_dest"] = ~df["destination"].map(is_private_ip) & df["destination"].ne("")
+    sev = df["etype"].map(BASE_SEVERITY).astype(int)
+    sev += ((df["etype"].isin(["file_access", "file_download", "outbound_transfer"])) & df["sensitive"]).astype(int)
+    sev += ((df["etype"] == "outbound_transfer") & df["external_dest"]).astype(int)
+    sev += ((df["etype"] == "outbound_transfer") & ((df["bytes"] >= 500_000_000) | df["large"])).astype(int)
+    df["severity"] = sev.clip(0, 5)
+    df["severity_label"] = df["severity"].map(SEVERITY_LABEL)
     return df, quality
