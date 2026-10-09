@@ -80,15 +80,17 @@ df["timestamp"] = pd.to_datetime(
     errors="coerce",
     utc=True
 ).dt.tz_localize(None)
+   ```python
     df["timestamp"] = pd.to_datetime(
-    df["timestamp"].astype(str).str.strip(),
-    errors="coerce",
-    utc=True
-).dt.tz_localize(None)
+        df["timestamp"].astype(str).str.strip(),
+        errors="coerce",
+        utc=True
+    ).dt.tz_localize(None)
 
-bad = df["timestamp"].isna()
+    bad = df["timestamp"].isna()
     quality["invalid_timestamps"] = int(bad.sum())
     df = df[~bad].copy()
+```
 
     # --- missing values
     quality["missing_values_filled"] = int(((df["user"] == "") | (df["source_ip"] == "") | (df["event"] == "")).sum())
