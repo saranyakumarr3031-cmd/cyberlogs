@@ -80,7 +80,13 @@ df["timestamp"] = pd.to_datetime(
     errors="coerce",
     utc=True
 ).dt.tz_localize(None)
-    bad = df["timestamp"].isna()
+    df["timestamp"] = pd.to_datetime(
+    df["timestamp"].astype(str).str.strip(),
+    errors="coerce",
+    utc=True
+).dt.tz_localize(None)
+
+bad = df["timestamp"].isna()
     quality["invalid_timestamps"] = int(bad.sum())
     df = df[~bad].copy()
 
