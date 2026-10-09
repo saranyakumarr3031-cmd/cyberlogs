@@ -1,354 +1,223 @@
 
-"""
-IncidentLensAI - Log Normalizer
-Normalizes uploaded security CSV logs into a consistent schema.
-"""
-
 import pandas as pd
-import numpy as np
 
 
-# ---------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------
-
-def _find_column(df, candidates):
-    """Find a column without depending on capitalization or spaces."""
-    normalized = {
-        str(col).strip().lower().replace(" ", "_").replace("-", "_"): col
-        for col in df.columns
-    }
-
-    for candidate in candidates:
-        key = candidate.strip().lower().replace(" ", "_").replace("-", "_")
-        if key in normalized:
-            return normalized[key]
-
-    return None
-
-
-def _clean_text(value, default="unknown"):
-    if pd.isna(value):
-        return default
-
-    value = str(value).strip()
-    return value if value else default
-
-
-def detect_event_type(value):
-    """Map common security event names into normalized event types."""
-    text = _clean_text(value, "").lower()
-    text = text.replace("-", "_").replace(" ", "_")
-
-    patterns = {
-        "failed_login": [
-            "failed_login", "login_failed", "authentication_failure",
-            "auth_failure", "invalid_password", "failed_authentication",
-            "login_failure", "logon_failure"
-        ],
-        "successful_login": [
-            "successful_login", "login_success", "authentication_success",
-            "user_login", "logged_in", "logon_success"
-        ],
-        "port_scan": [
-            "port_scan", "portscan", "network_scan", "nmap"
-        ],
-        "malware": [
-            "malware", "virus_detected", "trojan", "ransomware"
-        ],
-        "outbound_transfer": [
-            "outbound_transfer", "data_exfiltration", "large_upload",
-            "data_transfer", "file_upload"
-        ],
-        "privilege_escalation": [
-            "privilege_escalation", "admin_privilege",
-            "privilege_grant", "sudo"
-        ],
-        "suspicious_process": [
-            "suspicious_process", "process_injection",
-            "powershell", "suspicious_execution"
-        ],
-        "firewall_block": [
-            "firewall_block", "connection_blocked", "blocked_connection"
-        ],
-        "file_access": [
-            "file_access", "file_modified", "file_deleted"
-        ],
-        "dns_query": [
-            "dns_query", "dns_request", "domain_lookup"
-        ],
-    }
-
-    # Exact/substring matching against known event patterns.
-    for event_type, keywords in patterns.items():
-        if any(keyword in text for keyword in keywords):
-            return event_type
-
-    # Keep a meaningful unknown event name instead of inventing a type.
-    return text if text and text != "unknown" else "unknown"
-
-
-# ---------------------------------------------------------
-# Main normalizer
-# ---------------------------------------------------------
-
-def normalize(df):
+def normalize(raw):
     """
-    Input:
-        pandas DataFrame containing uploaded log records.
-
-    Output:
-        (normalized_dataframe, quality_dictionary)
-
-    The output includes columns expected by the pipeline:
-        id, timestamp, source_ip, user, destination, external_dest,
-        etype, severity, is_candidate
+    Normalize parsed security logs into a consistent format.
+    Returns:
+        df      : cleaned DataFrame
+        quality : data-quality statistics
     """
 
-    if df is None:
-        raise ValueError("No CSV data was supplied.")
-
-    if not isinstance(df, pd.DataFrame):
-        df = pd.DataFrame(df)
-
-    if df.empty:
-        raise ValueError("The uploaded CSV file contains no data rows.")
-
-    df = df.copy()
-
-    # Normalize header names.
-    df.columns = [
-        str(col).strip().lower().replace(" ", "_").replace("-", "_")
-        for col in df.columns
-    ]
-
-    # Remove duplicate column names, keeping the first occurrence.
-    df = df.loc[:, ~df.columns.duplicated()].copy()
+    df = raw.copy()
 
     quality = {
-        "rows_read": int(len(df)),
+        "rows_read": len(df),
         "invalid_timestamps": 0,
         "duplicates_removed": 0,
-        "valid_events": 0,
         "unknown_event_types": 0,
     }
 
-    # Find common timestamp column names.
-    timestamp_col = _find_column(
-        df,
-        [
-            "timestamp", "@timestamp", "time", "datetime",
-            "date_time", "event_time", "created_at", "date"
-        ],
-    )
+    if df.empty:
+        return df, quality
 
-    if timestamp_col is None:
-        raise ValueError(
-            "Could not find a timestamp column. "
-            "Expected a column such as timestamp, time, or datetime. "
-            f"Found columns: {list(df.columns)}"
-        )
+    # Ensure expected columns exist
+    expected_columns = [
+        "timestamp",
+        "source_ip",
+        "user",
+        "event",
+        "action",
+        "destination",
+        "status",
+        "bytes",
+    ]
 
-    # Find common event-type column names.
-    event_col = _find_column(
-        df,
-        [
-            "etype", "event", "event_type", "eventtype",
-            "event_name", "activity", "action", "description",
-            "message", "log_type", "signature"
-        ],
-    )
+    for column in expected_columns:
+        if column not in df.columns:
+            df[column] = ""
 
-    if event_col is None:
-        raise ValueError(
-            "Could not find an event column. "
-            "Expected event, event_type, event_name, action, or message. "
-            f"Found columns: {list(df.columns)}"
-        )
-
-    # Standardize timestamps.
+    # Normalize timestamp values
     df["timestamp"] = pd.to_datetime(
-        df[timestamp_col].astype(str).str.strip(),
+        df["timestamp"].astype(str).str.strip(),
         errors="coerce",
         utc=True,
     ).dt.tz_localize(None)
 
-    bad_timestamps = df["timestamp"].isna()
-    quality["invalid_timestamps"] = int(bad_timestamps.sum())
-
-    df = df.loc[~bad_timestamps].copy()
+    # Remove invalid timestamps
+    bad = df["timestamp"].isna()
+    quality["invalid_timestamps"] = int(bad.sum())
+    df = df[~bad].copy()
 
     if df.empty:
-        raise ValueError(
-            "No valid timestamps were found. "
-            "Please check the timestamp values in the CSV."
+        quality["duplicates_removed"] = 0
+        quality["unknown_event_types"] = 0
+        return df, quality
+
+    # Clean text fields
+    text_columns = [
+        "source_ip",
+        "user",
+        "event",
+        "action",
+        "destination",
+        "status",
+    ]
+
+    for column in text_columns:
+        df[column] = (
+            df[column]
+            .fillna("")
+            .astype(str)
+            .str.strip()
         )
 
-    # Generate stable IDs for the remaining rows.
-    id_col = _find_column(
-        df,
-        ["id", "event_id", "log_id", "record_id", "row_id"],
+    # Replace missing values
+    df["source_ip"] = df["source_ip"].replace("", "unknown")
+    df["user"] = df["user"].replace("", "unknown")
+    df["event"] = df["event"].replace("", "unknown")
+    df["action"] = df["action"].replace("", "unknown")
+    df["destination"] = df["destination"].replace("", "unknown")
+    df["status"] = df["status"].replace("", "unknown")
+
+    # Convert bytes to numeric values
+    df["bytes"] = pd.to_numeric(
+        df["bytes"], errors="coerce"
+    ).fillna(0)
+
+    # Remove duplicate rows
+    before = len(df)
+    df = df.drop_duplicates().copy()
+    quality["duplicates_removed"] = before - len(df)
+
+    # Sort by time
+    df = df.sort_values("timestamp").reset_index(drop=True)
+
+    # Assign unique event IDs
+    df["id"] = [
+        f"E{i + 1:04d}" for i in range(len(df))
+    ]
+
+    # Normalize event names
+    event_text = (
+        df["event"].astype(str).str.lower()
+        + " "
+        + df["action"].astype(str).str.lower()
     )
 
-    if id_col is not None:
-        df["id"] = df[id_col].astype(str)
-    else:
-        df["id"] = [f"event_{i + 1}" for i in range(len(df))]
+    def classify_event(value):
+        value = str(value).lower()
 
-    # Normalize event types.
-    df["etype"] = df[event_col].apply(detect_event_type)
+        if any(word in value for word in [
+            "failed login", "login failed", "authentication failure",
+            "auth failure", "invalid password",
+        ]):
+            return "failed_login"
 
+        if any(word in value for word in [
+            "successful login", "login success", "user login",
+        ]):
+            return "successful_login"
+
+        if any(word in value for word in [
+            "port scan", "portscan", "network scan",
+        ]):
+            return "port_scan"
+
+        if any(word in value for word in [
+            "privilege escalation", "sudo", "admin privilege",
+        ]):
+            return "privilege_escalation"
+
+        if any(word in value for word in [
+            "malware", "ransomware", "virus detected",
+        ]):
+            return "malware_detected"
+
+        if any(word in value for word in [
+            "outbound transfer", "data exfiltration",
+            "large upload", "data transfer",
+        ]):
+            return "outbound_transfer"
+
+        if any(word in value for word in [
+            "file access", "file modified", "file deleted",
+        ]):
+            return "file_activity"
+
+        if any(word in value for word in [
+            "firewall", "blocked connection", "connection blocked",
+        ]):
+            return "firewall_event"
+
+        if any(word in value for word in [
+            "dns query", "dns request",
+        ]):
+            return "dns_query"
+
+        if any(word in value for word in [
+            "process started", "process execution",
+        ]):
+            return "process_execution"
+
+        return "unknown"
+
+    df["etype"] = event_text.apply(classify_event)
+
+    # Severity score from 1 (low) to 5 (critical)
+    severity_map = {
+        "failed_login": 2,
+        "successful_login": 1,
+        "port_scan": 3,
+        "privilege_escalation": 5,
+        "malware_detected": 5,
+        "outbound_transfer": 4,
+        "file_activity": 2,
+        "firewall_event": 2,
+        "dns_query": 1,
+        "process_execution": 2,
+        "unknown": 1,
+    }
+
+    df["severity"] = df["etype"].map(severity_map).fillna(1).astype(int)
+
+    # Mark potentially sensitive events
+    df["sensitive"] = df["etype"].isin([
+        "failed_login",
+        "privilege_escalation",
+        "malware_detected",
+        "outbound_transfer",
+    ])
+
+    # Identify external destination hints
+    def is_external_destination(value):
+        value = str(value).strip().lower()
+
+        if not value or value in {
+            "unknown", "localhost", "127.0.0.1", "::1"
+        }:
+            return False
+
+        # This is a simple heuristic, not a complete IP/domain validator.
+        if value.startswith((
+            "10.", "192.168.", "172.16.", "172.17.",
+            "172.18.", "172.19.", "172.20.", "172.21.",
+            "172.22.", "172.23.", "172.24.", "172.25.",
+            "172.26.", "172.27.", "172.28.", "172.29.",
+            "172.30.", "172.31.",
+        )):
+            return False
+
+        return True
+
+    df["external_dest"] = df["destination"].apply(
+        is_external_destination
+    )
+
+    # Count unrecognized event types
     quality["unknown_event_types"] = int(
         (df["etype"] == "unknown").sum()
     )
-
-    # Source IP.
-    source_col = _find_column(
-        df,
-        [
-            "source_ip", "src_ip", "src", "srcip",
-            "client_ip", "ip_address", "ip", "remote_ip"
-        ],
-    )
-
-    if source_col is not None:
-        df["source_ip"] = df[source_col].apply(_clean_text)
-    else:
-        df["source_ip"] = "unknown"
-
-    # Username.
-    user_col = _find_column(
-        df,
-        [
-            "user", "username", "user_name", "account",
-            "account_name", "principal", "subject"
-        ],
-    )
-
-    if user_col is not None:
-        df["user"] = df[user_col].apply(_clean_text)
-    else:
-        df["user"] = "unknown"
-
-    # Destination.
-    destination_col = _find_column(
-        df,
-        [
-            "destination", "destination_ip", "dest_ip",
-            "dst_ip", "dst", "dest", "target_ip",
-            "remote_host", "destination_host"
-        ],
-    )
-
-    if destination_col is not None:
-        df["destination"] = df[destination_col].apply(_clean_text)
-        df.loc[df["destination"] == "unknown", "destination"] = ""
-    else:
-        df["destination"] = ""
-
-    # External destination indicator.
-    external_col = _find_column(
-        df,
-        [
-            "external_dest", "is_external", "external_destination",
-            "destination_external"
-        ],
-    )
-
-    if external_col is not None:
-        df["external_dest"] = (
-            df[external_col]
-            .astype(str)
-            .str.strip()
-            .str.lower()
-            .isin(["true", "1", "yes", "y", "external"])
-        )
-    else:
-        df["external_dest"] = False
-
-    # Severity: preserve numeric values where possible.
-    severity_col = _find_column(
-        df,
-        [
-            "severity", "severity_score", "risk_score",
-            "priority_score", "level"
-        ],
-    )
-
-    if severity_col is not None:
-        severity = pd.to_numeric(df[severity_col], errors="coerce")
-    else:
-        severity = pd.Series(np.nan, index=df.index)
-
-    # Convert common textual severity levels to a 1-5 scale.
-    if severity_col is not None:
-        text_severity = (
-            df[severity_col].astype(str).str.strip().str.lower()
-        )
-
-        severity_map = {
-            "info": 1,
-            "informational": 1,
-            "low": 2,
-            "medium": 3,
-            "moderate": 3,
-            "high": 4,
-            "critical": 5,
-            "urgent": 5,
-        }
-
-        mapped = text_severity.map(severity_map)
-        severity = severity.fillna(mapped)
-
-    df["severity"] = severity.fillna(1).clip(lower=1, upper=5).astype(int)
-
-    severity_labels = {
-        1: "Low",
-        2: "Low",
-        3: "Medium",
-        4: "High",
-        5: "Critical",
-    }
-
-    df["severity_label"] = df["severity"].map(severity_labels)
-
-    # Anomaly score: use an existing score if present; otherwise
-    # initialize it to zero. Detection happens in the pipeline.
-    anomaly_col = _find_column(
-        df,
-        ["anomaly_score", "anomaly", "anomaly_probability"],
-    )
-
-    if anomaly_col is not None:
-        df["anomaly_score"] = pd.to_numeric(
-            df[anomaly_col], errors="coerce"
-        ).fillna(0).clip(lower=0, upper=1)
-    else:
-        df["anomaly_score"] = 0.0
-
-    # Preserve existing order if supplied, otherwise generate one.
-    order_col = _find_column(
-        df,
-        ["order", "event_order", "sequence", "sequence_number"],
-    )
-
-    if order_col is not None:
-        df["order"] = df[order_col]
-    else:
-        df["order"] = range(1, len(df) + 1)
-
-    # Mark potential candidates for downstream anomaly detection.
-    # Unknown events are not automatically considered malicious.
-    df["is_candidate"] = df["etype"] != "unknown"
-
-    # Remove exact duplicate rows.
-    before = len(df)
-    df = df.drop_duplicates().copy()
-    quality["duplicates_removed"] = int(before - len(df))
-
-    # Ensure chronological order.
-    df = df.sort_values("timestamp").reset_index(drop=True)
-
-    quality["valid_events"] = int(len(df))
 
     return df, quality
