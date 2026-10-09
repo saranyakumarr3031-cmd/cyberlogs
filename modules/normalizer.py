@@ -74,8 +74,12 @@ def normalize(raw):
     quality = {"rows_read": len(df)}
 
     # --- invalid timestamps (time-only values like "09:41" are accepted, today's date is used)
-    df["timestamp"] = pd.to_datetime(df["timestamp"].astype(str).str.strip(), errors="coerce",
-                                     utc=True, format="mixed").dt.tz_localize(None)
+    
+df["timestamp"] = pd.to_datetime(
+    df["timestamp"].astype(str).str.strip(),
+    errors="coerce",
+    utc=True
+).dt.tz_localize(None)
     bad = df["timestamp"].isna()
     quality["invalid_timestamps"] = int(bad.sum())
     df = df[~bad].copy()
