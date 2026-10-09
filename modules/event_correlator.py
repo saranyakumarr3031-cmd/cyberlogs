@@ -1,9 +1,8 @@
-```python
+
 """
 MODULE 3b - AI-ASSISTED EVENT CORRELATION
------------------------------------------
-Calculates relationship scores between suspicious events using seven factors,
-then uses DBSCAN clustering to group related events into candidate incidents.
+Calculates relationships between suspicious events and groups
+strongly related events into candidate incidents.
 """
 
 import math
@@ -14,7 +13,6 @@ from sklearn.cluster import DBSCAN
 from .attack_stage import STAGE_BY_TYPE, STAGE_INDEX
 
 
-# Relationship weights
 WEIGHTS = {
     "same_ip": 0.22,
     "same_user": 0.18,
@@ -27,17 +25,10 @@ WEIGHTS = {
 
 WINDOW_MINUTES = 60
 TIME_DECAY_MINUTES = 15
-
-# Minimum score needed to create a relationship edge
 EDGE_THRESHOLD = 0.55
 
-# DBSCAN clustering settings
 DBSCAN_EPS = 0.35
-
-# Changed from 3 to 2 so two strongly related events
-# can form a candidate cluster.
 DBSCAN_MIN_SAMPLES = 2
-
 
 _FORWARD = {
     0: 0.80,
@@ -51,7 +42,7 @@ _FORWARD = {
 
 
 def type_relation(type_a, type_b):
-    """Estimate how naturally one event type follows another."""
+    """Estimate the relationship between two event types."""
 
     stage_a = STAGE_BY_TYPE.get(type_a)
     stage_b = STAGE_BY_TYPE.get(type_b)
@@ -68,11 +59,11 @@ def type_relation(type_a, type_b):
 
 
 def pair_score(a, b, type_counts):
-    """Calculate relationship score and individual factor contributions."""
+    """Calculate a relationship score between two events."""
 
     minutes = abs(
         (b["timestamp"] - a["timestamp"]).total_seconds()
-    ) / 60
+    ) / 60.0
 
     parts = {
         "same_ip": (
@@ -81,24 +72,17 @@ def pair_score(a, b, type_counts):
             and a["source_ip"] != "unknown"
             else 0.0
         ),
-
         "same_user": (
             1.0
             if a["user"] == b["user"]
             and a["user"] != "unknown"
             else 0.0
         ),
-
         "time": math.exp(-minutes / TIME_DECAY_MINUTES),
-
-        "type_relation": type_relation(
-            a["etype"], b["etype"]
-        ),
-
+        "type_relation": type_relation(a["etype"], b["etype"]),
         "severity": (
-            a["severity"] + b["severity"]
+            float(a["severity"]) + float(b["severity"])
         ) / 10.0,
-
         "repetition": (
             1.0
             if a["etype"] == b["etype"]
@@ -106,10 +90,9 @@ def pair_score(a, b, type_counts):
                 1.0,
                 type_counts.get(
                     (b["source_ip"], b["etype"]), 1
-                ) / 3,
+                ) / 3.0,
             )
         ),
-
         "src_dst": (
             1.0
             if a["destination"]
@@ -130,53 +113,49 @@ def pair_score(a, b, type_counts):
         for key, value in parts.items()
     )
 
-    rounded_parts = {
+    parts = {
         key: round(float(value), 2)
         for key, value in parts.items()
     }
 
-    return round(float(score), 3), rounded_parts
+    return round(float(score), 3), parts
 
 
 def correlate(df):
     """
-    Return:
-      edges: event relationships above EDGE_THRESHOLD
-      labels: event ID to cluster number; -1 means noise
+    Returns:
+      edges: relationships with score >= EDGE_THRESHOLD
+      labels: event ID -> cluster ID; -1 means not clustered
     """
 
-    cand = (
+    candidates = (
         df[df["is_candidate"]]
         .sort_values("timestamp")
     )
 
-    ids = cand["id"].tolist()
-    rows = cand.to_dict("records")
+    ids = candidates["id"].tolist()
+    rows = candidates.to_dict("records")
     n = len(rows)
 
+    if n == 0:
+        return [], {}
+
     type_counts = (
-        cand.groupby(["source_ip", "etype"])
+        candidates.groupby(["source_ip", "etype"])
         .size()
         .to_dict()
     )
 
-    # No suspicious candidate events means no relationships.
-    if n == 0:
-        return [], {}
-
-    # Initialize distance matrix.
-    # DBSCAN uses distance = 1 - relationship score.
-    dist = np.ones((n, n), dtype=float)
-    np.fill_diagonal(dist, 0.0)
+    distances = np.ones((n, n), dtype=float)
+    np.fill_diagonal(distances, 0.0)
 
     edges = []
 
     for i in range(n):
         for j in range(i + 1, n):
-
             minutes = (
                 rows[j]["timestamp"] - rows[i]["timestamp"]
-            ).total_seconds() / 60
+            ).total_seconds() / 60.0
 
             if minutes > WINDOW_MINUTES:
                 break
@@ -186,8 +165,8 @@ def correlate(df):
             )
 
             distance = 1.0 - score
-            dist[i, j] = distance
-            dist[j, i] = distance
+            distances[i, j] = distance
+            distances[j, i] = distance
 
             if score >= EDGE_THRESHOLD:
                 edges.append({
@@ -197,23 +176,23 @@ def correlate(df):
                     "parts": parts,
                 })
 
-    # Cluster candidate events.
+    # Allow a cluster containing two strongly related events.
     if n >= DBSCAN_MIN_SAMPLES:
-        found = DBSCAN(
+        cluster_ids = DBSCAN(
             eps=DBSCAN_EPS,
             min_samples=DBSCAN_MIN_SAMPLES,
             metric="precomputed",
-        ).fit_predict(dist)
+        ).fit_predict(distances)
 
         labels = {
-            ids[index]: int(found[index])
+            ids[index]: int(cluster_ids[index])
             for index in range(n)
         }
     else:
         labels = {
-            ids[index]: -1
-            for index in range(n)
+            event_id: -1
+            for event_id in ids
         }
 
     return edges, labels
-```
+
